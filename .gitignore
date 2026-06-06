@@ -1,0 +1,11 @@
+node_modules/
+.npm-cache/
+.venv/
+dist/
+frontend/dist/
+*.tsbuildinfo
+flymanager.db
+backend/flymanager.db
+backend/storage/
+__pycache__/
+.pytest_cache/

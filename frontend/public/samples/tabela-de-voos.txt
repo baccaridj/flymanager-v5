@@ -1,0 +1,72 @@
+TABELA DE VOOS
+
+OPCAO CM
+  1a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  CM3804U | 06JAN | CWB-GRU | 06:15 | 07:35 | 
+  CM700U | 06JAN | GRU-PTY | 11:10 | 16:01 | 
+  CM285U | 06JAN | PTY-MCO | 18:30 | 22:00 | 
+  CM479U | 17JAN | MCO-PTY | 13:37 | 17:08 | 
+  CM486U | 17JAN | PTY-GIG | 18:46 | 04:00 | Chega 18JAN
+  CM3587U | 18JAN | GIG-CWB | 07:20 | 08:55 | 
+
+  2a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  CM700U | 06JAN | GRU-PTY | 11:10 | 16:01 | 
+  CM285U | 06JAN | PTY-MCO | 18:30 | 22:00 | 
+  CM459O | 17JAN | MCO-PTY | 15:57 | 19:28 | 
+  CM759O | 17JAN | PTY-GRU | 21:23 | 06:30 | Chega 18JAN
+
+
+OPCAO AA
+  1a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  AA7652K | 06JAN | CWB-GRU | 19:25 | 20:45 | 
+  AA930K | 06JAN | GRU-MIA | 23:10 | 05:35 | Chega 07JAN
+  AA2468K | 07JAN | MIA-MCO | 09:04 | 10:16 | 
+  AA2872M | 17JAN | MCO-MIA | 19:00 | 20:23 | 
+  AA995M | 17JAN | MIA-GRU | 21:35 | 07:55 | Chega 18JAN
+  AA7710M | 18JAN | GRU-CWB | 09:35 | 10:50 | 
+
+  2a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  AA962K | 06JAN | GRU-DFW | 22:45 | 06:15 | Chega 07JAN
+  AA1737K | 07JAN | DFW-MCO | 10:10 | 13:43 | 
+  AA2468L | 17JAN | MCO-MIA | 11:20 | 12:36 | 
+  AA929L | 17JAN | MIA-GRU | 19:45 | 06:20 | Chega 18JAN
+
+
+OPCAO DL
+  1a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  DL6023H | 06JAN | GRU-MCO | 11:40 | 18:30 | 
+  DL6070K | 17JAN | MCO-GRU | 18:25 | 05:00 | Chega 18JAN
+
+  2a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  DL6123U | 06JAN | CWB-GRU | 19:15 | 20:30 | 
+  DL6072U | 07JAN | GRU-MCO | 08:30 | 15:20 | 
+  DL6070K | 17JAN | MCO-GRU | 18:25 | 05:00 | Chega 18JAN
+  DL6237K | 18JAN | GRU-CWB | 07:50 | 08:55 | 
+
+
+OPCAO LA
+  1a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  LA3283L | 05JAN | CWB-GRU | 07:10 | 08:25 | 
+  LA8186L | 05JAN | GRU-MCO | 11:40 | 18:30 | 
+  LA8187M | 15JAN | MCO-GRU | 22:15 | 08:50 | Chega 16JAN
+  LA3288M | 16JAN | GRU-CWB | 12:55 | 14:00 | 
+
+  2a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  LA8186M | 05JAN | GRU-MCO | 11:40 | 18:30 | 
+  LA8127K | 15JAN | MCO-GRU | 18:25 | 05:00 | Chega 16JAN
+
+  3a Opcao
+  Voo | Data | Trecho | Saida | Chegada | Obs.
+  LA3463N | 05JAN | LDB-GRU | 19:20 | 20:35 | 
+  LA8126N | 06JAN | GRU-MCO | 08:30 | 15:20 | 
+  LA8187S | 15JAN | MCO-GRU | 22:15 | 08:50 | Chega 16JAN
+  LA3462S | 16JAN | GRU-LDB | 17:20 | 18:35 | 
+

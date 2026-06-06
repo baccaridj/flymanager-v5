@@ -1,0 +1,65 @@
+COTACAO PREMIUM
+Acréscimo aplicado: 7% sobre o valor final por passageiro.
+
+OPCAO CM
+
+1a Opcao
+2 ADT: BRL 8.415,23 + 7% = BRL 9.004,30 por passageiro
+1 CNN: BRL 6.943,11 + 7% = BRL 7.429,13 por passageiro
+Total premium: BRL 25.437,73
+
+2a Opcao
+2 ADT: BRL 7.070,33 + 7% = BRL 7.565,25 por passageiro
+1 CNN: BRL 5.799,87 + 7% = BRL 6.205,86 por passageiro
+Total premium: BRL 21.336,36
+
+OPCAO AA
+
+1a Opcao
+2 ADT: BRL 8.721,03 + 7% = BRL 9.331,50 por passageiro
+1 CNN: BRL 8.721,03 + 7% = BRL 9.331,50 por passageiro
+Total premium: BRL 27.994,50
+
+2a Opcao
+2 ADT: BRL 8.321,14 + 7% = BRL 8.903,62 por passageiro
+1 CNN: BRL 8.321,14 + 7% = BRL 8.903,62 por passageiro
+Total premium: BRL 26.710,86
+
+OPCAO DL
+
+1a Opcao
+2 ADT: BRL 10.526,30 + 7% = BRL 11.263,14 por passageiro
+1 CNN: BRL 10.526,30 + 7% = BRL 11.263,14 por passageiro
+Total premium: BRL 33.789,42
+
+2a Opcao
+2 ADT: BRL 9.171,74 + 7% = BRL 9.813,76 por passageiro
+1 CNN: BRL 9.171,74 + 7% = BRL 9.813,76 por passageiro
+Total premium: BRL 29.441,28
+
+OPCAO LA
+
+1a Opcao
+2 ADT: BRL 12.042,62 + 7% = BRL 12.885,60 por passageiro
+1 CNN: BRL 12.042,62 + 7% = BRL 12.885,60 por passageiro
+Total premium: BRL 38.656,80
+
+2a Opcao
+2 ADT: BRL 12.747,93 + 7% = BRL 13.640,29 por passageiro
+1 CNN: BRL 12.747,93 + 7% = BRL 13.640,29 por passageiro
+Total premium: BRL 40.920,87
+
+3a Opcao
+3 ADT: BRL 11.391,29 + 7% = BRL 12.188,68 por passageiro
+Total premium: BRL 36.566,04
+
+CONDICOES GERAIS
+Cabine: Economica
+Bagagem despachada: 1PC
+Formas de pagamento: conforme condicao da companhia
+Cambio informado: 5,0415
+
+Observacoes importantes:
+Data de nascimento e nome conforme passaporte devem estar corretos.
+Emissoes com data de nascimento incorreta de INF/CHD podem resultar em ADM.
+Documentacoes e vacinas sao de responsabilidade da agencia/passageiro.
