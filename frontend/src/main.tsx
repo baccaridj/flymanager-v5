@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   BarChart3,
@@ -14,7 +14,6 @@ import {
   Trash2,
   Upload,
   Users,
-  Wand2,
 } from "lucide-react";
 import "./styles.css";
 
@@ -78,7 +77,7 @@ const api = {
     const response = await fetch(`/api${path}`, { ...init, headers });
     if (!response.ok) {
       const detail = await response.text();
-      throw new Error(detail || "Falha na requisicao");
+      throw new Error(detail || "Falha na requisição");
     }
     return response.json() as Promise<T>;
   },
@@ -101,9 +100,38 @@ const docLabels: Record<DocumentType, string> = {
   fatura: "Fatura",
   passaporte: "Passaporte",
   contrato: "Contrato",
-  cotacao: "Cotacao",
+  cotacao: "Cotação",
   xml_import: "XML",
   other: "Outro",
+};
+
+const statusLabels: Record<DocumentStatus, string> = {
+  entry: "Entrada",
+  extraction: "Extração",
+  classification: "Classificação",
+  validation: "Validação",
+  destination: "Destino",
+  action: "Ação",
+  done: "Concluído",
+};
+
+const saleFieldLabels: Record<string, string> = {
+  passenger: "Passageiro",
+  locator: "Localizador",
+  ticket: "Bilhete",
+  airline: "Companhia aérea",
+  route: "Rota",
+  dates: "Datas",
+  total: "Total (R$)",
+  du: "DU",
+  rav: "RAV",
+};
+
+const clientFieldLabels: Record<string, string> = {
+  name: "Nome completo",
+  email: "E-mail",
+  phone: "Telefone",
+  document: "CPF / CNPJ",
 };
 
 const navItems = [
@@ -111,7 +139,7 @@ const navItems = [
   { id: "upload", label: "Upload Center", icon: Upload },
   { id: "documents", label: "Documentos", icon: Files },
   { id: "sales", label: "Vendas", icon: Plane },
-  { id: "reconciliation", label: "Conciliacao", icon: CircleDollarSign },
+  { id: "reconciliation", label: "Conciliação", icon: CircleDollarSign },
   { id: "clients", label: "Clientes", icon: Users },
   { id: "settings", label: "Ajustes", icon: Settings },
 ] as const;
@@ -119,6 +147,8 @@ const navItems = [
 function classNames(...items: Array<string | false | undefined>) {
   return items.filter(Boolean).join(" ");
 }
+
+type ToastState = { message: string; type: "success" | "error" };
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem("flymanager_token") || "");
@@ -131,26 +161,40 @@ function App() {
   const [query, setQuery] = useState("");
   const [documentFilter, setDocumentFilter] = useState("all");
   const [busy, setBusy] = useState(false);
-  const [toast, setToast] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const [brand, setBrand] = useState(() => {
     const saved = localStorage.getItem("flymanager_brand");
     return saved ? JSON.parse(saved) : { logo: "/brand/fly-logo.png", accent: "#8C9B8A", paper: "#F5F3EB" };
   });
 
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
   async function refresh() {
     if (!localStorage.getItem("flymanager_token")) return;
-    const [docData, salesData, clientData, txData, statsData] = await Promise.all([
-      api.request<DocumentRecord[]>(`/documents?search=${encodeURIComponent(query)}&classification=${documentFilter}`),
-      api.request<Sale[]>(`/sales?search=${encodeURIComponent(query)}`),
-      api.request<Client[]>(`/clients?search=${encodeURIComponent(query)}`),
-      api.request<Transaction[]>("/transactions"),
-      api.request<Stats>("/stats"),
-    ]);
-    setDocuments(docData);
-    setSales(salesData);
-    setClients(clientData);
-    setTransactions(txData);
-    setStats(statsData);
+    setLoading(true);
+    try {
+      const [docData, salesData, clientData, txData, statsData] = await Promise.all([
+        api.request<DocumentRecord[]>(`/documents?search=${encodeURIComponent(query)}&classification=${documentFilter}`),
+        api.request<Sale[]>(`/sales?search=${encodeURIComponent(query)}`),
+        api.request<Client[]>(`/clients?search=${encodeURIComponent(query)}`),
+        api.request<Transaction[]>("/transactions"),
+        api.request<Stats>("/stats"),
+      ]);
+      setDocuments(docData);
+      setSales(salesData);
+      setClients(clientData);
+      setTransactions(txData);
+      setStats(statsData);
+    } catch {
+      // silently fail on background refresh
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -161,47 +205,64 @@ function App() {
     setBusy(true);
     try {
       const result = await api.request<DocumentRecord>("/upload", { method: "POST", body: payload });
-      setToast(`${docLabels[result.classification]} processado`);
+      setToast({ message: `${docLabels[result.classification]} processado com sucesso`, type: "success" });
       await refresh();
       setView("documents");
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : "Erro ao processar documento", type: "error" });
     } finally {
       setBusy(false);
     }
   }
 
   async function deleteDocument(id: number) {
-    await api.request(`/documents/${id}`, { method: "DELETE" });
-    await refresh();
+    try {
+      await api.request(`/documents/${id}`, { method: "DELETE" });
+      setToast({ message: "Documento removido", type: "success" });
+      await refresh();
+    } catch {
+      setToast({ message: "Erro ao remover documento", type: "error" });
+    }
   }
 
   async function createClient(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    await api.request<Client>("/clients", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.fromEntries(form)),
-    });
-    event.currentTarget.reset();
-    refresh();
+    try {
+      await api.request<Client>("/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(Object.fromEntries(form)),
+      });
+      setToast({ message: "Cliente cadastrado com sucesso", type: "success" });
+      event.currentTarget.reset();
+      refresh();
+    } catch {
+      setToast({ message: "Erro ao cadastrar cliente", type: "error" });
+    }
   }
 
   async function createSale(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const data = Object.fromEntries(form);
-    await api.request<Sale>("/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...data,
-        total: Number(data.total),
-        du: Number(data.du || 0),
-        rav: Number(data.rav || 0),
-      }),
-    });
-    event.currentTarget.reset();
-    refresh();
+    try {
+      await api.request<Sale>("/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...data,
+          total: Number(data.total),
+          du: Number(data.du || 0),
+          rav: Number(data.rav || 0),
+        }),
+      });
+      setToast({ message: "Venda registrada com sucesso", type: "success" });
+      event.currentTarget.reset();
+      refresh();
+    } catch {
+      setToast({ message: "Erro ao registrar venda", type: "error" });
+    }
   }
 
   if (!token) {
@@ -210,13 +271,18 @@ function App() {
 
   return (
     <div className="min-h-screen bg-night text-ivory" style={{ ["--brand-accent" as string]: brand.accent, ["--brand-paper" as string]: brand.paper }}>
+      {loading && (
+        <div className="fixed left-0 right-0 top-0 z-50 h-0.5 overflow-hidden">
+          <div className="h-full animate-pulse bg-[var(--brand-accent)]" />
+        </div>
+      )}
       <div className="grid min-h-screen grid-cols-[280px_minmax(0,1fr)] max-lg:grid-cols-[92px_minmax(0,1fr)] max-md:block">
         <aside className="sticky top-0 flex h-screen flex-col border-r border-white/10 bg-[#101d1f] p-5 max-md:relative max-md:h-auto">
           <div className="mb-8 flex items-center gap-3 max-lg:justify-center max-md:justify-start">
             <img src={brand.logo} alt="Fly Manager" className="h-12 w-12 rounded-lg bg-ivory object-contain p-1" />
             <div className="max-lg:hidden max-md:block">
               <p className="font-display text-2xl leading-none">Fly Manager</p>
-              <p className="text-xs uppercase text-sage">Shadow Ops</p>
+              <p className="text-xs uppercase text-sage">Agências de viagem</p>
             </div>
           </div>
 
@@ -241,7 +307,7 @@ function App() {
 
           <div className="mt-auto rounded-lg border border-white/10 bg-white/5 p-4 max-lg:hidden">
             <p className="text-xs uppercase text-sage">Pipeline</p>
-            <p className="mt-1 text-sm text-ivory/80">Entrada → Extracao → Classificacao → Validacao → Destino → Acao</p>
+            <p className="mt-1 text-sm text-ivory/80">Entrada → Extração → Classificação → Validação → Destino → Ação</p>
           </div>
         </aside>
 
@@ -254,14 +320,14 @@ function App() {
             <div className="flex items-center gap-3 max-md:flex-col">
               <label className="flex min-h-11 w-96 max-w-full items-center gap-2 rounded-lg border border-white/10 bg-white/7 px-3 text-ivory/80 max-md:w-full">
                 <Search size={18} />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent outline-none" placeholder="Buscar documentos, passageiros, locators" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent outline-none" placeholder="Buscar documentos, passageiros, localizadores" />
               </label>
               <button
                 onClick={() => {
                   localStorage.removeItem("flymanager_token");
                   setToken("");
                 }}
-                className="grid h-11 w-11 place-items-center rounded-lg border border-white/10 bg-white/7 text-ivory/80"
+                className="grid h-11 w-11 place-items-center rounded-lg border border-white/10 bg-white/7 text-ivory/80 transition hover:bg-white/12 hover:text-ivory"
                 aria-label="Sair"
               >
                 <LogOut size={18} />
@@ -269,7 +335,16 @@ function App() {
             </div>
           </header>
 
-          {toast && <div className="mb-4 rounded-lg border border-sage/30 bg-sage/15 px-4 py-3 text-sm text-ivory">{toast}</div>}
+          {toast && (
+            <div
+              className={classNames(
+                "mb-4 rounded-lg border px-4 py-3 text-sm text-ivory",
+                toast.type === "success" ? "border-sage/30 bg-sage/15" : "border-red-400/30 bg-red-400/10 text-red-200",
+              )}
+            >
+              {toast.message}
+            </div>
+          )}
 
           {view === "dashboard" && <Dashboard stats={stats} documents={documents} sales={sales} transactions={transactions} />}
           {view === "upload" && <UploadCenter busy={busy} onUpload={uploadPayload} />}
@@ -286,16 +361,21 @@ function App() {
 
 function Login({ onLogin }: { onLogin: (token: string) => void }) {
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setLoading(true);
+    setError("");
     const form = new FormData(event.currentTarget);
     try {
       const result = await api.login(String(form.get("email")), String(form.get("password")));
       localStorage.setItem("flymanager_token", result.access_token);
       onLogin(result.access_token);
     } catch {
-      setError("Login invalido. Use admin@flymanager.local / flymanager");
+      setError("E-mail ou senha inválidos. Verifique suas credenciais.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -307,7 +387,7 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
           <div>
             <p className="text-sm font-bold uppercase text-olive">Flymusic 2025</p>
             <h1 className="mt-3 font-display text-6xl leading-tight max-md:text-4xl">Fly Manager</h1>
-            <p className="mt-4 max-w-md text-lg text-petroleum/80">SaaS premium para agencias que transformam qualquer documento em acao operacional.</p>
+            <p className="mt-4 max-w-md text-lg text-petroleum/80">SaaS premium para agências que transformam qualquer documento em ação operacional.</p>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="grid content-center gap-5 p-10">
@@ -316,26 +396,37 @@ function Login({ onLogin }: { onLogin: (token: string) => void }) {
             <h2 className="font-display text-4xl">Entrar</h2>
           </div>
           <label className="grid gap-2 text-sm font-semibold text-ivory/70">
-            Email
-            <input name="email" defaultValue="admin@flymanager.local" className="min-h-12 rounded-lg border border-white/10 bg-white/7 px-3 text-ivory outline-none" />
+            E-mail
+            <input name="email" type="email" defaultValue="admin@flymanager.local" className="min-h-12 rounded-lg border border-white/10 bg-white/7 px-3 text-ivory outline-none transition focus:border-[var(--brand-accent)]" />
           </label>
           <label className="grid gap-2 text-sm font-semibold text-ivory/70">
             Senha
-            <input name="password" type="password" defaultValue="flymanager" className="min-h-12 rounded-lg border border-white/10 bg-white/7 px-3 text-ivory outline-none" />
+            <input name="password" type="password" defaultValue="flymanager" className="min-h-12 rounded-lg border border-white/10 bg-white/7 px-3 text-ivory outline-none transition focus:border-[var(--brand-accent)]" />
           </label>
-          {error && <p className="text-sm text-red-300">{error}</p>}
-          <button className="min-h-12 rounded-lg bg-[var(--brand-accent,#8C9B8A)] px-4 font-bold text-night">Entrar no Fly Manager</button>
+          {error && <p className="rounded-lg border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-300">{error}</p>}
+          <button disabled={loading} className="min-h-12 rounded-lg bg-[var(--brand-accent,#8C9B8A)] px-4 font-bold text-night transition hover:opacity-90 disabled:opacity-50">
+            {loading ? "Entrando..." : "Entrar no Fly Manager"}
+          </button>
         </form>
       </section>
     </main>
   );
 }
 
+const PIPELINE_STEPS = [
+  { key: "entrada", label: "ENTRADA" },
+  { key: "extracao", label: "EXTRAÇÃO" },
+  { key: "classificacao", label: "CLASSIF." },
+  { key: "validacao", label: "VALIDAÇÃO" },
+  { key: "destino", label: "DESTINO" },
+  { key: "acao", label: "AÇÃO" },
+];
+
 function Dashboard({ stats, documents, sales, transactions }: { stats: Stats; documents: DocumentRecord[]; sales: Sale[]; transactions: Transaction[] }) {
   const cards = [
     { label: "Documentos hoje", value: stats.documents_today, icon: Files },
     { label: "Vendas ativas", value: stats.active_sales, icon: Plane },
-    { label: "Conciliacao pendente", value: stats.pending_reconciliation, icon: FileSearch },
+    { label: "Conciliação pendente", value: stats.pending_reconciliation, icon: FileSearch },
     { label: "Receita mensal", value: currency.format(stats.monthly_revenue), icon: BarChart3 },
   ];
   return (
@@ -344,7 +435,7 @@ function Dashboard({ stats, documents, sales, transactions }: { stats: Stats; do
         {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <article key={card.label} className="rounded-lg border border-white/10 bg-white/7 p-5">
+            <article key={card.label} className="rounded-lg border border-white/10 bg-white/7 p-5 transition hover:bg-white/10">
               <div className="flex items-center justify-between">
                 <p className="text-xs font-bold uppercase text-sage">{card.label}</p>
                 <Icon size={18} className="text-[var(--brand-accent)]" />
@@ -357,10 +448,10 @@ function Dashboard({ stats, documents, sales, transactions }: { stats: Stats; do
       <div className="grid grid-cols-[1.4fr_.8fr] gap-5 max-lg:grid-cols-1">
         <Panel title="Fluxo de documentos" eyebrow="Pipeline">
           <div className="grid grid-cols-6 gap-3 max-xl:grid-cols-3 max-sm:grid-cols-2">
-            {["ENTRY", "EXTRACTION", "CLASSIFICATION", "VALIDATION", "DESTINATION", "ACTION"].map((step, index) => (
-              <div key={step} className="rounded-lg border border-white/10 bg-night/50 p-4">
+            {PIPELINE_STEPS.map((step, index) => (
+              <div key={step.key} className="rounded-lg border border-white/10 bg-night/50 p-4">
                 <span className="text-xs font-bold text-sage">0{index + 1}</span>
-                <p className="mt-2 break-words text-sm font-bold">{step}</p>
+                <p className="mt-2 break-words text-sm font-bold">{step.label}</p>
                 <div className="mt-4 h-1.5 rounded-full bg-white/10">
                   <div className="h-full rounded-full bg-[var(--brand-accent)]" style={{ width: `${Math.min(100, 30 + index * 11)}%` }} />
                 </div>
@@ -368,15 +459,15 @@ function Dashboard({ stats, documents, sales, transactions }: { stats: Stats; do
             ))}
           </div>
         </Panel>
-        <Panel title="Ultimas acoes" eyebrow="Auditoria">
+        <Panel title="Últimas ações" eyebrow="Auditoria">
           <div className="grid gap-3">
             {documents.slice(0, 5).map((doc) => (
               <div key={doc.id} className="flex items-center justify-between gap-3 rounded-lg bg-night/45 p-3">
                 <span>
-                  <strong className="block">{doc.filename}</strong>
+                  <strong className="block truncate">{doc.filename}</strong>
                   <span className="text-sm text-ivory/55">{docLabels[doc.classification]}</span>
                 </span>
-                <CheckCircle2 size={18} className="text-sage" />
+                <CheckCircle2 size={18} className="shrink-0 text-sage" />
               </div>
             ))}
             {!documents.length && <p className="text-ivory/55">Nenhum documento processado ainda.</p>}
@@ -388,11 +479,13 @@ function Dashboard({ stats, documents, sales, transactions }: { stats: Stats; do
           title="Vendas recentes"
           headers={["Passageiro", "Localizador", "Total"]}
           rows={sales.slice(0, 5).map((sale) => [sale.passenger, sale.locator, currency.format(sale.total)])}
+          empty="Nenhuma venda registrada."
         />
         <DataTable
           title="Financeiro"
-          headers={["Categoria", "Metodo", "Valor"]}
+          headers={["Categoria", "Método", "Valor"]}
           rows={transactions.slice(0, 5).map((tx) => [tx.category, tx.payment_method, currency.format(tx.amount)])}
+          empty="Nenhum movimento registrado."
         />
       </div>
     </div>
@@ -402,6 +495,7 @@ function Dashboard({ stats, documents, sales, transactions }: { stats: Stats; do
 function UploadCenter({ busy, onUpload }: { busy: boolean; onUpload: (payload: FormData) => Promise<void> }) {
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   async function process() {
     const payload = new FormData();
@@ -414,20 +508,25 @@ function UploadCenter({ busy, onUpload }: { busy: boolean; onUpload: (payload: F
 
   return (
     <div className="grid grid-cols-[1.2fr_.8fr] gap-5 max-lg:grid-cols-1">
-      <Panel title="Porta unica" eyebrow="Upload Center">
+      <Panel title="Porta única" eyebrow="Upload Center">
         <div
-          onDragOver={(event) => event.preventDefault()}
+          onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
           onDrop={(event) => {
             event.preventDefault();
+            setDragging(false);
             setFile(event.dataTransfer.files?.[0] || null);
           }}
-          className="grid min-h-72 place-items-center rounded-lg border border-dashed border-sage/50 bg-night/50 p-6 text-center"
+          className={classNames(
+            "grid min-h-72 place-items-center rounded-lg border border-dashed p-6 text-center transition",
+            dragging ? "border-[var(--brand-accent)] bg-[var(--brand-accent)]/10" : "border-sage/50 bg-night/50",
+          )}
         >
           <div>
             <Upload className="mx-auto text-sage" size={42} />
             <h2 className="mt-4 font-display text-3xl">Arraste arquivo, cole texto ou imagem</h2>
-            <p className="mt-2 text-ivory/60">PDF, XML, texto, comprovante PIX, extrato, e-ticket, voucher ou cotacao.</p>
-            <label className="mt-5 inline-flex min-h-11 cursor-pointer items-center rounded-lg bg-ivory px-4 font-bold text-night">
+            <p className="mt-2 text-ivory/60">PDF, XML, texto, comprovante PIX, extrato, e-ticket, voucher ou cotação.</p>
+            <label className="mt-5 inline-flex min-h-11 cursor-pointer items-center rounded-lg bg-ivory px-4 font-bold text-night transition hover:bg-ivory/90">
               Selecionar arquivo
               <input type="file" className="sr-only" onChange={(event) => setFile(event.target.files?.[0] || null)} />
             </label>
@@ -437,19 +536,19 @@ function UploadCenter({ busy, onUpload }: { busy: boolean; onUpload: (payload: F
         <textarea
           value={text}
           onChange={(event) => setText(event.target.value)}
-          className="mt-4 min-h-40 w-full rounded-lg border border-white/10 bg-night/60 p-4 text-ivory outline-none"
-          placeholder="Cole aqui um e-ticket, cotacao, PIX, extrato ou XML Wintour."
+          className="mt-4 min-h-40 w-full rounded-lg border border-white/10 bg-night/60 p-4 text-ivory outline-none transition focus:border-[var(--brand-accent)]"
+          placeholder="Cole aqui um e-ticket, cotação, PIX, extrato ou XML Wintour."
         />
-        <button disabled={busy || (!file && !text.trim())} onClick={process} className="mt-4 min-h-12 w-full rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night disabled:opacity-45">
-          {busy ? "Processando..." : "PROCESS"}
+        <button disabled={busy || (!file && !text.trim())} onClick={process} className="mt-4 min-h-12 w-full rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night transition hover:opacity-90 disabled:opacity-45">
+          {busy ? "Processando..." : "PROCESSAR"}
         </button>
       </Panel>
-      <Panel title="Amostras locais" eyebrow="Teste rapido">
+      <Panel title="Amostras locais" eyebrow="Teste rápido">
         <div className="grid gap-3">
-          <SampleButton path="/samples/cotacao-premium.txt" setText={setText} label="Cotacao premium" />
+          <SampleButton path="/samples/cotacao-premium.txt" setText={setText} label="Cotação premium" />
           <SampleButton path="/samples/tabela-de-voos.txt" setText={setText} label="Tabela de voos" />
-          <a className="rounded-lg border border-white/10 bg-white/7 p-4 font-semibold text-ivory" href="/brand/fly-logo.pdf" target="_blank" rel="noreferrer">
-            Logo PDF editavel
+          <a className="rounded-lg border border-white/10 bg-white/7 p-4 font-semibold text-ivory transition hover:bg-white/12" href="/brand/fly-logo.pdf" target="_blank" rel="noreferrer">
+            Logo PDF editável
           </a>
           <img src="/brand/fly-logo.png" alt="Logo Fly" className="rounded-lg bg-ivory p-4" />
         </div>
@@ -462,7 +561,7 @@ function SampleButton({ path, label, setText }: { path: string; label: string; s
   return (
     <button
       onClick={async () => setText(await fetch(path).then((response) => response.text()))}
-      className="rounded-lg border border-white/10 bg-white/7 p-4 text-left font-semibold text-ivory"
+      className="rounded-lg border border-white/10 bg-white/7 p-4 text-left font-semibold text-ivory transition hover:bg-white/12"
     >
       {label}
     </button>
@@ -471,9 +570,9 @@ function SampleButton({ path, label, setText }: { path: string; label: string; s
 
 function Documents({ documents, filter, setFilter, onDelete }: { documents: DocumentRecord[]; filter: string; setFilter: (value: string) => void; onDelete: (id: number) => void }) {
   return (
-    <Panel title="Historico com validacao" eyebrow="Documentos">
+    <Panel title="Histórico com validação" eyebrow="Documentos">
       <div className="mb-4 flex items-center justify-between gap-3 max-md:flex-col max-md:items-stretch">
-        <select value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory">
+        <select value={filter} onChange={(event) => setFilter(event.target.value)} className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none">
           <option value="all">Todos os tipos</option>
           {Object.entries(docLabels).map(([value, label]) => (
             <option key={value} value={value}>
@@ -482,16 +581,17 @@ function Documents({ documents, filter, setFilter, onDelete }: { documents: Docu
           ))}
         </select>
       </div>
+      {!documents.length && <p className="py-8 text-center text-ivory/55">Nenhum documento encontrado.</p>}
       <div className="grid gap-3">
         {documents.map((doc) => (
-          <article key={doc.id} className="grid grid-cols-[1fr_160px_150px_44px] items-center gap-3 rounded-lg border border-white/10 bg-night/45 p-4 max-lg:grid-cols-1">
+          <article key={doc.id} className="grid grid-cols-[1fr_160px_150px_44px] items-center gap-3 rounded-lg border border-white/10 bg-night/45 p-4 transition hover:bg-night/60 max-lg:grid-cols-1">
             <div>
               <strong>{doc.filename}</strong>
               <pre className="mt-2 max-h-28 overflow-auto rounded bg-black/20 p-3 text-xs text-ivory/70">{JSON.stringify(doc.extracted_data, null, 2)}</pre>
             </div>
             <span className="rounded-full bg-sage/15 px-3 py-1 text-center text-sm font-bold text-sage">{docLabels[doc.classification]}</span>
-            <span className="text-sm text-ivory/60">{doc.status}</span>
-            <button onClick={() => onDelete(doc.id)} className="grid h-11 w-11 place-items-center rounded-lg border border-white/10 text-red-200" aria-label="Excluir documento">
+            <span className="text-sm text-ivory/60">{statusLabels[doc.status] ?? doc.status}</span>
+            <button onClick={() => onDelete(doc.id)} className="grid h-11 w-11 place-items-center rounded-lg border border-white/10 text-red-200 transition hover:border-red-400/40 hover:bg-red-400/10" aria-label="Excluir documento">
               <Trash2 size={18} />
             </button>
           </article>
@@ -504,23 +604,30 @@ function Documents({ documents, filter, setFilter, onDelete }: { documents: Docu
 function Sales({ sales, onCreate }: { sales: Sale[]; onCreate: (event: React.FormEvent<HTMLFormElement>) => void }) {
   return (
     <div className="grid gap-5">
-      <Panel title="Nova venda" eyebrow="CRUD">
+      <Panel title="Nova venda" eyebrow="Cadastro">
         <form onSubmit={onCreate} className="grid grid-cols-4 gap-3 max-xl:grid-cols-2 max-md:grid-cols-1">
           {["passenger", "locator", "ticket", "airline", "route", "dates", "total", "du", "rav"].map((field) => (
-            <input key={field} required={["passenger", "locator", "total"].includes(field)} name={field} placeholder={field} className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none" />
+            <input
+              key={field}
+              required={["passenger", "locator", "total"].includes(field)}
+              name={field}
+              placeholder={saleFieldLabels[field] ?? field}
+              className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none transition focus:border-[var(--brand-accent)]"
+            />
           ))}
-          <select name="status" className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory">
+          <select name="status" className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none">
             <option value="active">Ativa</option>
             <option value="issued">Emitida</option>
             <option value="cancelled">Cancelada</option>
           </select>
-          <button className="min-h-11 rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night">Salvar venda</button>
+          <button className="min-h-11 rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night transition hover:opacity-90">Salvar venda</button>
         </form>
       </Panel>
       <DataTable
         title="Vendas"
-        headers={["Passageiro", "Localizador", "Bilhete", "Cia", "Rota", "Datas", "Total", "DU", "RAV", "Status"]}
+        headers={["Passageiro", "Localizador", "Bilhete", "Cia. Aérea", "Rota", "Datas", "Total", "DU", "RAV", "Status"]}
         rows={sales.map((sale) => [sale.passenger, sale.locator, sale.ticket, sale.airline, sale.route, sale.dates, currency.format(sale.total), currency.format(sale.du), currency.format(sale.rav), sale.status])}
+        empty="Nenhuma venda registrada."
       />
     </div>
   );
@@ -537,12 +644,17 @@ function Reconciliation({ transactions, onUpload, busy }: { transactions: Transa
   return (
     <div className="grid grid-cols-[.9fr_1.1fr] gap-5 max-lg:grid-cols-1">
       <Panel title="Importar extrato" eyebrow="OFX / CSV / Texto">
-        <textarea value={text} onChange={(event) => setText(event.target.value)} className="min-h-72 w-full rounded-lg border border-white/10 bg-night p-4 text-ivory outline-none" placeholder="Cole EXTRATO, SALDO, PIX, valor e historico." />
-        <button disabled={busy || !text.trim()} onClick={importStatement} className="mt-4 min-h-12 w-full rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night disabled:opacity-45">
-          Importar e conciliar
+        <textarea value={text} onChange={(event) => setText(event.target.value)} className="min-h-72 w-full rounded-lg border border-white/10 bg-night p-4 text-ivory outline-none transition focus:border-[var(--brand-accent)]" placeholder="Cole EXTRATO, SALDO, PIX, valor e histórico." />
+        <button disabled={busy || !text.trim()} onClick={importStatement} className="mt-4 min-h-12 w-full rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night transition hover:opacity-90 disabled:opacity-45">
+          {busy ? "Importando..." : "Importar e conciliar"}
         </button>
       </Panel>
-      <DataTable title="Movimentos" headers={["Tipo", "Categoria", "Metodo", "Valor", "Conciliado"]} rows={transactions.map((tx) => [tx.type, tx.category, tx.payment_method, currency.format(tx.amount), tx.reconciled ? "Sim" : "Nao"])} />
+      <DataTable
+        title="Movimentos"
+        headers={["Tipo", "Categoria", "Método", "Valor", "Conciliado"]}
+        rows={transactions.map((tx) => [tx.type, tx.category, tx.payment_method, currency.format(tx.amount), tx.reconciled ? "Sim" : "Não"])}
+        empty="Nenhum movimento importado."
+      />
     </div>
   );
 }
@@ -553,18 +665,25 @@ function Clients({ clients, onCreate }: { clients: Client[]; onCreate: (event: R
       <Panel title="Novo cliente" eyebrow="Cadastro">
         <form onSubmit={onCreate} className="grid grid-cols-5 gap-3 max-xl:grid-cols-2 max-md:grid-cols-1">
           {["name", "email", "phone", "document"].map((field) => (
-            <input key={field} name={field} required={field === "name"} placeholder={field} className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none" />
+            <input
+              key={field}
+              name={field}
+              required={field === "name"}
+              placeholder={clientFieldLabels[field] ?? field}
+              className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none transition focus:border-[var(--brand-accent)]"
+            />
           ))}
-          <button className="min-h-11 rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night">Salvar cliente</button>
+          <button className="min-h-11 rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night transition hover:opacity-90">Salvar cliente</button>
         </form>
       </Panel>
+      {!clients.length && <p className="py-8 text-center text-ivory/55">Nenhum cliente cadastrado ainda.</p>}
       <div className="grid grid-cols-3 gap-4 max-xl:grid-cols-2 max-md:grid-cols-1">
         {clients.map((client) => (
-          <article key={client.id} className="rounded-lg border border-white/10 bg-white/7 p-5">
+          <article key={client.id} className="rounded-lg border border-white/10 bg-white/7 p-5 transition hover:bg-white/10">
             <h3 className="font-display text-2xl">{client.name}</h3>
-            <p className="mt-2 text-ivory/60">{client.email || "Sem email"}</p>
+            <p className="mt-2 text-ivory/60">{client.email || "Sem e-mail"}</p>
             <p className="text-ivory/60">{client.phone || "Sem telefone"}</p>
-            <p className="mt-4 rounded bg-night/45 p-3 text-sm text-sage">{client.document || "Documento nao informado"}</p>
+            <p className="mt-4 rounded bg-night/45 p-3 text-sm text-sage">{client.document || "Documento não informado"}</p>
           </article>
         ))}
       </div>
@@ -584,11 +703,11 @@ function SettingsView({ brand, setBrand }: { brand: { logo: string; accent: stri
   }
   return (
     <div className="grid grid-cols-[.8fr_1.2fr] gap-5 max-lg:grid-cols-1">
-      <Panel title="Identidade editavel" eyebrow="Brand">
+      <Panel title="Identidade editável" eyebrow="Brand">
         <div className="grid gap-4">
           <label className="grid gap-2 text-sm font-semibold text-ivory/70">
             Logo PNG
-            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => event.target.files?.[0] && readLogo(event.target.files[0])} className="rounded-lg border border-white/10 bg-night p-3" />
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => event.target.files?.[0] && readLogo(event.target.files[0])} className="rounded-lg border border-white/10 bg-night p-3 text-ivory/70" />
           </label>
           <label className="grid gap-2 text-sm font-semibold text-ivory/70">
             Cor de destaque
@@ -598,8 +717,8 @@ function SettingsView({ brand, setBrand }: { brand: { logo: string; accent: stri
             Off-white
             <input type="color" value={brand.paper} onChange={(event) => update({ ...brand, paper: event.target.value })} className="h-12 w-full rounded-lg border border-white/10 bg-night p-1" />
           </label>
-          <a className="rounded-lg border border-white/10 bg-white/7 p-4 font-semibold text-ivory" href="/brand/fly-logo.pdf" target="_blank" rel="noreferrer">
-            Abrir logo em PDF editavel
+          <a className="rounded-lg border border-white/10 bg-white/7 p-4 font-semibold text-ivory transition hover:bg-white/12" href="/brand/fly-logo.pdf" target="_blank" rel="noreferrer">
+            Abrir logo em PDF editável
           </a>
         </div>
       </Panel>
@@ -610,7 +729,7 @@ function SettingsView({ brand, setBrand }: { brand: { logo: string; accent: stri
         <div className="mt-5 rounded-lg border border-white/10 bg-night/45 p-5">
           <p className="text-xs font-bold uppercase text-sage">Tipografia</p>
           <h2 className="font-display text-5xl">Noto Serif Display</h2>
-          <p className="mt-2 text-ivory/65">Sora para interface, descricoes e conteudo funcional.</p>
+          <p className="mt-2 text-ivory/65">Sora para interface, descrições e conteúdo funcional.</p>
         </div>
       </Panel>
     </div>
@@ -627,33 +746,37 @@ function Panel({ title, eyebrow, children }: { title: string; eyebrow: string; c
   );
 }
 
-function DataTable({ title, headers, rows }: { title: string; headers: string[]; rows: Array<Array<string | number>> }) {
+function DataTable({ title, headers, rows, empty }: { title: string; headers: string[]; rows: Array<Array<string | number>>; empty?: string }) {
   return (
     <Panel title={title} eyebrow="Tabela">
-      <div className="overflow-auto">
-        <table className="w-full min-w-[720px] border-collapse text-left">
-          <thead>
-            <tr>
-              {headers.map((header) => (
-                <th key={header} className="border-b border-white/10 px-3 py-3 text-xs uppercase text-sage">
-                  {header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, rowIndex) => (
-              <tr key={rowIndex}>
-                {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className="border-b border-white/8 px-3 py-3 text-sm text-ivory/80">
-                    {cell}
-                  </td>
+      {!rows.length && empty ? (
+        <p className="py-6 text-center text-ivory/55">{empty}</p>
+      ) : (
+        <div className="overflow-auto">
+          <table className="w-full min-w-[720px] border-collapse text-left">
+            <thead>
+              <tr>
+                {headers.map((header) => (
+                  <th key={header} className="border-b border-white/10 px-3 py-3 text-xs uppercase text-sage">
+                    {header}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIndex) => (
+                <tr key={rowIndex} className="transition hover:bg-white/4">
+                  {row.map((cell, cellIndex) => (
+                    <td key={cellIndex} className="border-b border-white/8 px-3 py-3 text-sm text-ivory/80">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Panel>
   );
 }
