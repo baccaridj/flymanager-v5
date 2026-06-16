@@ -3,6 +3,7 @@ from datetime import date
 from pathlib import Path
 from uuid import uuid4
 
+import anthropic
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import or_, select
@@ -272,6 +273,84 @@ def transactions(db: Session = Depends(get_db), user: Usuario = Depends(get_curr
 @app.post("/api/reconciliation", response_model=DocumentoOut)
 async def reconciliation(text: str = Form(...), db: Session = Depends(get_db), user: Usuario = Depends(get_current_user)) -> Documento:
     return await upload(file=None, text=text, db=db, user=user)
+
+
+_INSTAGRAM_PROMPTS: dict[str, str] = {
+    "growth_plan": (
+        "Crie uma estratégia completa de crescimento no Instagram para {niche} com foco em {audience}. "
+        "Analise o comportamento da audiência, oportunidades de conteúdo, lacunas de posicionamento e alavancas de crescimento. "
+        "Crie pilares de conteúdo, temas de postagem e estratégias de atração de audiência desenvolvidas para aumentar "
+        "visualizações, seguidores e engajamento de forma consistente."
+    ),
+    "audience_research": (
+        "Analise este público: {audience}. "
+        "Identifique os maiores medos, objeções, motivações de compra e resultados desejados. "
+        "Em seguida, gere temas de conteúdo e ângulos de post que naturalmente atraiam atenção, construam confiança e criem demanda."
+    ),
+    "viral_content": (
+        "Gere 50 ideias de conteúdo para o Instagram para {niche} com foco em {audience}. "
+        "Concentre-se em erros, mitos, opiniões impopulares, lições, frameworks, oportunidades ocultas, tendências e dores da audiência. "
+        "Torne cada ideia específica, emocionalmente envolvente e otimizada para alcance e compartilhamentos."
+    ),
+    "reels_hook": (
+        "Transforme esta ideia: {idea} em um roteiro de Reels de alta retenção para o Instagram. "
+        "Comece com um gancho que para o scroll, siga com insights concisos e valiosos e termine com uma conclusão memorável ou chamada para ação. "
+        "Mantenha a escrita conversacional, envolvente e otimizada para tempo de exibição."
+    ),
+    "content_optimizer": (
+        "Analise este conteúdo: {content}. "
+        "Identifique ganchos fracos, frases genéricas, posicionamento ruim, enchimento e tudo que reduz o engajamento. "
+        "Em seguida, reescreva para melhorar clareza, impacto emocional, retenção e valor percebido mantendo o significado original intacto."
+    ),
+    "sales_content": (
+        "Gere 20 ideias de conteúdo para o Instagram desenvolvidas para atrair leads ou vendas para {offer}. "
+        "Aborde objeções, frustrações, objetivos, preocupações de compra e transformações desejadas da audiência. "
+        "Torne o conteúdo educativo e valioso enquanto posiciona naturalmente a oferta como a solução."
+    ),
+    "content_repurpose": (
+        "Pegue este conteúdo: {content} e transforme em Reels, carrosséis, legendas, conteúdo para Stories, threads e roteiros curtos. "
+        "Adapte a estrutura para cada formato mantendo a mensagem central consistente e envolvente."
+    ),
+    "growth_system": (
+        "Crie um sistema completo de crescimento e monetização no Instagram de 60 dias para {niche}. "
+        "Inclua planejamento de conteúdo, táticas de crescimento de audiência, estrutura de postagem, fluxos de engajamento, "
+        "métodos de geração de leads, sistemas de reaproveitamento de conteúdo e revisões de performance. "
+        "Torne o fluxo de trabalho simples, escalável e realista para um criador solo."
+    ),
+}
+
+
+@app.post("/api/instagram/generate")
+async def instagram_generate(
+    tool: str = Form(...),
+    niche: str = Form(default=""),
+    audience: str = Form(default=""),
+    idea: str = Form(default=""),
+    content: str = Form(default=""),
+    offer: str = Form(default=""),
+    user: Usuario = Depends(get_current_user),
+) -> dict:
+    template = _INSTAGRAM_PROMPTS.get(tool)
+    if not template:
+        raise HTTPException(status_code=400, detail=f"Ferramenta desconhecida: {tool}")
+    if not settings.anthropic_api_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY nao configurada")
+
+    prompt = template.format(
+        niche=niche or "nicho",
+        audience=audience or "publico",
+        idea=idea or "ideia",
+        content=content or "conteudo",
+        offer=offer or "oferta",
+    )
+
+    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    message = client.messages.create(
+        model="claude-opus-4-8",
+        max_tokens=4096,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return {"result": message.content[0].text}
 
 
 @app.get("/api/stats", response_model=StatsOut)

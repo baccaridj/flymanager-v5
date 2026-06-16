@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     storage_dir: Path = Path("storage")
+    anthropic_api_key: str = ""
 
 
 settings = Settings()

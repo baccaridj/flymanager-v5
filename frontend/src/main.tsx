@@ -7,10 +7,12 @@ import {
   FileSearch,
   Files,
   LayoutDashboard,
+  Loader2,
   LogOut,
   Plane,
   Search,
   Settings,
+  TrendingUp,
   Trash2,
   Upload,
   Users,
@@ -68,7 +70,7 @@ type Stats = {
   monthly_revenue: number;
 };
 
-type View = "upload" | "documents" | "sales" | "reconciliation" | "clients" | "dashboard" | "settings";
+type View = "upload" | "documents" | "sales" | "reconciliation" | "clients" | "dashboard" | "settings" | "instagram";
 
 const api = {
   async request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -113,6 +115,7 @@ const navItems = [
   { id: "sales", label: "Vendas", icon: Plane },
   { id: "reconciliation", label: "Conciliacao", icon: CircleDollarSign },
   { id: "clients", label: "Clientes", icon: Users },
+  { id: "instagram", label: "Instagram AI", icon: TrendingUp },
   { id: "settings", label: "Ajustes", icon: Settings },
 ] as const;
 
@@ -277,6 +280,7 @@ function App() {
           {view === "sales" && <Sales sales={sales} onCreate={createSale} />}
           {view === "reconciliation" && <Reconciliation transactions={transactions} onUpload={uploadPayload} busy={busy} />}
           {view === "clients" && <Clients clients={clients} onCreate={createClient} />}
+          {view === "instagram" && <InstagramTools />}
           {view === "settings" && <SettingsView brand={brand} setBrand={setBrand} />}
         </main>
       </div>
@@ -655,6 +659,219 @@ function DataTable({ title, headers, rows }: { title: string; headers: string[];
         </table>
       </div>
     </Panel>
+  );
+}
+
+type InstagramTool = {
+  id: string;
+  label: string;
+  description: string;
+  fields: Array<{ name: string; label: string; placeholder: string; multiline?: boolean }>;
+};
+
+const INSTAGRAM_TOOLS: InstagramTool[] = [
+  {
+    id: "growth_plan",
+    label: "Plano de Crescimento",
+    description: "Estratégia completa com pilares de conteúdo, temas e alavancas de crescimento.",
+    fields: [
+      { name: "niche", label: "Nicho", placeholder: "ex: marketing digital, fitness, gastronomia" },
+      { name: "audience", label: "Público-alvo", placeholder: "ex: empreendedores iniciantes, mães 25-40 anos" },
+    ],
+  },
+  {
+    id: "audience_research",
+    label: "Pesquisa de Audiência",
+    description: "Identifique medos, objeções, motivações e gere temas que atraiam atenção.",
+    fields: [
+      { name: "audience", label: "Público-alvo", placeholder: "ex: freelancers que querem aumentar a renda" },
+    ],
+  },
+  {
+    id: "viral_content",
+    label: "Gerador de Conteúdo Viral",
+    description: "50 ideias de conteúdo otimizadas para alcance e compartilhamentos.",
+    fields: [
+      { name: "niche", label: "Nicho", placeholder: "ex: finanças pessoais, desenvolvimento pessoal" },
+      { name: "audience", label: "Público-alvo", placeholder: "ex: jovens de 20-30 anos endividados" },
+    ],
+  },
+  {
+    id: "reels_hook",
+    label: "Criador de Gancho e Reels",
+    description: "Roteiro de Reels de alta retenção com gancho poderoso e CTA memorável.",
+    fields: [
+      { name: "idea", label: "Ideia do Reel", placeholder: "ex: 3 erros que impedem você de crescer no Instagram", multiline: true },
+    ],
+  },
+  {
+    id: "content_optimizer",
+    label: "Otimizador de Conteúdo",
+    description: "Analisa e reescreve seu conteúdo para maximizar clareza, impacto e retenção.",
+    fields: [
+      { name: "content", label: "Conteúdo para otimizar", placeholder: "Cole aqui sua legenda, roteiro ou post...", multiline: true },
+    ],
+  },
+  {
+    id: "sales_content",
+    label: "Conteúdo de Vendas",
+    description: "20 ideias de conteúdo que atraem leads e posicionam sua oferta naturalmente.",
+    fields: [
+      { name: "offer", label: "Oferta / Produto", placeholder: "ex: mentoria de tráfego pago, curso de edição de vídeo" },
+    ],
+  },
+  {
+    id: "content_repurpose",
+    label: "Reaproveitamento de Conteúdo",
+    description: "Transforma um conteúdo em Reels, carrosséis, Stories, threads e roteiros.",
+    fields: [
+      { name: "content", label: "Conteúdo original", placeholder: "Cole aqui o conteúdo que deseja reaproveitar...", multiline: true },
+    ],
+  },
+  {
+    id: "growth_system",
+    label: "Sistema Completo 60 Dias",
+    description: "Sistema completo de crescimento e monetização no Instagram em 60 dias.",
+    fields: [
+      { name: "niche", label: "Nicho", placeholder: "ex: coach de carreira, loja de roupas fitness" },
+    ],
+  },
+];
+
+function InstagramTools() {
+  const [activeTool, setActiveTool] = useState(INSTAGRAM_TOOLS[0].id);
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [result, setResult] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const tool = INSTAGRAM_TOOLS.find((t) => t.id === activeTool)!;
+
+  function handleField(name: string, value: string) {
+    setFormValues((prev) => ({ ...prev, [`${activeTool}.${name}`]: value }));
+  }
+
+  function fieldValue(name: string) {
+    return formValues[`${activeTool}.${name}`] || "";
+  }
+
+  async function handleGenerate(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setResult("");
+    setError("");
+    try {
+      const body = new FormData();
+      body.append("tool", activeTool);
+      for (const field of tool.fields) {
+        body.append(field.name, fieldValue(field.name));
+      }
+      const response = await api.request<{ result: string }>("/instagram/generate", { method: "POST", body });
+      setResult(response.result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao gerar conteudo");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleToolSwitch(id: string) {
+    setActiveTool(id);
+    setResult("");
+    setError("");
+  }
+
+  return (
+    <div className="grid gap-5">
+      <div className="flex flex-wrap gap-2">
+        {INSTAGRAM_TOOLS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => handleToolSwitch(t.id)}
+            className={classNames(
+              "rounded-lg border px-4 py-2 text-sm font-semibold transition",
+              activeTool === t.id
+                ? "border-[var(--brand-accent)] bg-[var(--brand-accent)]/20 text-ivory"
+                : "border-white/10 bg-white/7 text-ivory/70 hover:text-ivory",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-[.9fr_1.1fr] gap-5 max-lg:grid-cols-1">
+        <Panel title={tool.label} eyebrow="Instagram AI">
+          <p className="mb-5 text-sm text-ivory/60">{tool.description}</p>
+          <form onSubmit={handleGenerate} className="grid gap-4">
+            {tool.fields.map((field) =>
+              field.multiline ? (
+                <label key={field.name} className="grid gap-2 text-sm font-semibold text-ivory/70">
+                  {field.label}
+                  <textarea
+                    value={fieldValue(field.name)}
+                    onChange={(e) => handleField(field.name, e.target.value)}
+                    placeholder={field.placeholder}
+                    className="min-h-36 w-full rounded-lg border border-white/10 bg-night/60 p-4 text-ivory outline-none"
+                  />
+                </label>
+              ) : (
+                <label key={field.name} className="grid gap-2 text-sm font-semibold text-ivory/70">
+                  {field.label}
+                  <input
+                    value={fieldValue(field.name)}
+                    onChange={(e) => handleField(field.name, e.target.value)}
+                    placeholder={field.placeholder}
+                    className="min-h-11 rounded-lg border border-white/10 bg-night/60 px-3 text-ivory outline-none"
+                  />
+                </label>
+              ),
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <TrendingUp size={18} />
+                  Gerar com IA
+                </>
+              )}
+            </button>
+          </form>
+          {error && <p className="mt-4 rounded-lg border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-300">{error}</p>}
+        </Panel>
+
+        <Panel title="Resultado" eyebrow="Conteudo gerado">
+          {result ? (
+            <div className="grid gap-3">
+              <div className="max-h-[600px] overflow-auto rounded-lg bg-night/60 p-5 text-sm leading-relaxed text-ivory/90 whitespace-pre-wrap">
+                {result}
+              </div>
+              <button
+                onClick={() => navigator.clipboard.writeText(result)}
+                className="min-h-11 rounded-lg border border-white/10 bg-white/7 px-4 font-semibold text-ivory/80 hover:text-ivory"
+              >
+                Copiar conteudo
+              </button>
+            </div>
+          ) : (
+            <div className="flex min-h-60 items-center justify-center rounded-lg border border-dashed border-white/10 text-ivory/40">
+              <div className="text-center">
+                <TrendingUp size={36} className="mx-auto mb-3 text-[var(--brand-accent)]/40" />
+                <p>Preencha o formulario e clique em Gerar com IA</p>
+              </div>
+            </div>
+          )}
+        </Panel>
+      </div>
+    </div>
   );
 }
 
