@@ -17,6 +17,8 @@ from .services.extraction import classify, extract, read_file_text
 
 app = FastAPI(title=settings.app_name)
 
+ALLOWED_UPLOAD_EXTENSIONS = {".pdf", ".txt", ".csv", ".xml", ".ofx", ".png", ".jpg", ".jpeg", ".webp"}
+
 # CORS — allow dev origins + FRONTEND_URL env var (set on Railway)
 _default_origins = [
     "http://127.0.0.1:5173", "http://localhost:5173",
@@ -62,14 +64,14 @@ def log(db: Session, user: Usuario, action: str, entity: str, description: str) 
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> Token:
     user = db.scalar(select(Usuario).where(Usuario.email == payload.email))
     if not user or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Credenciais inválidas")
     return Token(access_token=create_token(user))
 
 
 @app.post("/api/auth/register", response_model=Token)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> Token:
     if db.scalar(select(Usuario).where(Usuario.email == payload.email)):
-        raise HTTPException(status_code=409, detail="Email already exists")
+        raise HTTPException(status_code=409, detail="E-mail já está em uso")
     tenant_id = (db.scalar(select(Usuario.tenant_id).order_by(Usuario.tenant_id.desc())) or 0) + 1
     user = Usuario(name=payload.name, email=payload.email, password_hash=hash_password(payload.password), role="admin", tenant_id=tenant_id)
     db.add(user)
@@ -90,6 +92,9 @@ async def upload(
     content = text or ""
 
     if file:
+        suffix = Path(file.filename or "upload").suffix.lower()
+        if suffix not in ALLOWED_UPLOAD_EXTENSIONS:
+            raise HTTPException(status_code=415, detail=f"Tipo de arquivo não suportado: {suffix or 'sem extensão'}")
         safe_name = f"{uuid4().hex}_{Path(file.filename or 'upload').name}"
         destination = settings.storage_dir / safe_name
         destination.write_bytes(await file.read())
@@ -177,7 +182,7 @@ def documents(search: str = "", classification: str = "all", db: Session = Depen
 def document_detail(document_id: int, db: Session = Depends(get_db), user: Usuario = Depends(get_current_user)) -> Documento:
     document = db.get(Documento, document_id)
     if not document or document.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
     return document
 
 
@@ -185,7 +190,7 @@ def document_detail(document_id: int, db: Session = Depends(get_db), user: Usuar
 def delete_document(document_id: int, db: Session = Depends(get_db), user: Usuario = Depends(get_current_user)) -> dict:
     document = db.get(Documento, document_id)
     if not document or document.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(status_code=404, detail="Documento não encontrado")
     if document.filepath:
         Path(document.filepath).unlink(missing_ok=True)
     db.delete(document)
@@ -216,7 +221,7 @@ def create_sale(payload: VendaIn, db: Session = Depends(get_db), user: Usuario =
 def update_sale(sale_id: int, payload: VendaIn, db: Session = Depends(get_db), user: Usuario = Depends(get_current_user)) -> Venda:
     sale = db.get(Venda, sale_id)
     if not sale or sale.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Sale not found")
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
     for key, value in payload.model_dump().items():
         setattr(sale, key, value)
     db.commit()
@@ -228,7 +233,7 @@ def update_sale(sale_id: int, payload: VendaIn, db: Session = Depends(get_db), u
 def delete_sale(sale_id: int, db: Session = Depends(get_db), user: Usuario = Depends(get_current_user)) -> dict:
     sale = db.get(Venda, sale_id)
     if not sale or sale.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Sale not found")
+        raise HTTPException(status_code=404, detail="Venda não encontrada")
     db.delete(sale)
     db.commit()
     return {"ok": True}
@@ -256,7 +261,7 @@ def create_client(payload: ClienteIn, db: Session = Depends(get_db), user: Usuar
 def update_client(client_id: int, payload: ClienteIn, db: Session = Depends(get_db), user: Usuario = Depends(get_current_user)) -> Cliente:
     client = db.get(Cliente, client_id)
     if not client or client.tenant_id != user.tenant_id:
-        raise HTTPException(status_code=404, detail="Client not found")
+        raise HTTPException(status_code=404, detail="Cliente não encontrado")
     for key, value in payload.model_dump().items():
         setattr(client, key, value)
     db.commit()
