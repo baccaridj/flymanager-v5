@@ -285,11 +285,11 @@ function App() {
           <div className="h-full animate-pulse bg-[var(--brand-accent)]" />
         </div>
       )}
-      <div className="grid min-h-screen grid-cols-[280px_minmax(0,1fr)] max-lg:grid-cols-[92px_minmax(0,1fr)] max-md:block">
-        <aside className="sticky top-0 flex h-screen flex-col border-r border-white/10 bg-[#101d1f] p-5 max-md:relative max-md:h-auto">
-          <div className="mb-8 flex items-center gap-3 max-lg:justify-center max-md:justify-start">
+      <div className="grid min-h-screen grid-cols-[280px_minmax(0,1fr)] max-md:grid-cols-[92px_minmax(0,1fr)] max-sm:block">
+        <aside className="sticky top-0 flex h-screen flex-col border-r border-white/10 bg-[#101d1f] p-5 max-sm:relative max-sm:h-auto">
+          <div className="mb-8 flex items-center gap-3 max-md:justify-center max-sm:justify-start">
             <img src={brand.logo} alt="Fly Manager" className="h-12 w-12 rounded-lg bg-ivory object-contain p-1" />
-            <div className="max-lg:hidden max-md:block">
+            <div className="max-md:hidden max-sm:block">
               <p className="font-display text-2xl leading-none">Fly Manager</p>
               <p className="text-xs uppercase text-sage">Agências de viagem</p>
             </div>
@@ -308,13 +308,13 @@ function App() {
                   )}
                 >
                   <Icon size={18} className="text-[var(--brand-accent)]" />
-                  <span className="max-lg:hidden max-md:inline">{item.label}</span>
+                  <span className="max-md:hidden max-sm:inline">{item.label}</span>
                 </button>
               );
             })}
           </nav>
 
-          <div className="mt-auto rounded-lg border border-white/10 bg-white/5 p-4 max-lg:hidden">
+          <div className="mt-auto rounded-lg border border-white/10 bg-white/5 p-4 max-md:hidden">
             <p className="text-xs uppercase text-sage">Pipeline</p>
             <p className="mt-1 text-sm text-ivory/80">Entrada → Extração → Classificação → Validação → Destino → Ação</p>
           </div>
