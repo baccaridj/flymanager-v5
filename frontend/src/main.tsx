@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   BarChart3,
@@ -171,6 +171,7 @@ function App() {
     const saved = localStorage.getItem("flymanager_brand");
     return saved ? JSON.parse(saved) : { logo: "/brand/fly-logo.png", accent: "#8C9B8A", paper: "#F5F3EB" };
   });
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!toast) return;
@@ -179,23 +180,26 @@ function App() {
   }, [toast]);
 
   async function refresh() {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
     if (!localStorage.getItem("flymanager_token")) return;
     setLoading(true);
     try {
       const [docData, salesData, clientData, txData, statsData] = await Promise.all([
-        api.request<DocumentRecord[]>(`/documents?search=${encodeURIComponent(query)}&classification=${documentFilter}`),
-        api.request<Sale[]>(`/sales?search=${encodeURIComponent(query)}`),
-        api.request<Client[]>(`/clients?search=${encodeURIComponent(query)}`),
-        api.request<Transaction[]>("/transactions"),
-        api.request<Stats>("/stats"),
+        api.request<DocumentRecord[]>(`/documents?search=${encodeURIComponent(query)}&classification=${documentFilter}`, { signal: ctrl.signal }),
+        api.request<Sale[]>(`/sales?search=${encodeURIComponent(query)}`, { signal: ctrl.signal }),
+        api.request<Client[]>(`/clients?search=${encodeURIComponent(query)}`, { signal: ctrl.signal }),
+        api.request<Transaction[]>("/transactions", { signal: ctrl.signal }),
+        api.request<Stats>("/stats", { signal: ctrl.signal }),
       ]);
       setDocuments(docData);
       setSales(salesData);
       setClients(clientData);
       setTransactions(txData);
       setStats(statsData);
-    } catch {
-      // silently fail on background refresh
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
     } finally {
       setLoading(false);
     }
