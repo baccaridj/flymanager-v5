@@ -224,6 +224,7 @@ function App() {
   }
 
   async function deleteDocument(id: number) {
+    if (!window.confirm("Excluir este documento? Esta ação não pode ser desfeita.")) return;
     try {
       await api.request(`/documents/${id}`, { method: "DELETE" });
       setToast({ message: "Documento removido", type: "success" });
@@ -438,6 +439,12 @@ function Dashboard({ stats, documents, sales, transactions }: { stats: Stats; do
     { label: "Conciliação pendente", value: stats.pending_reconciliation, icon: FileSearch },
     { label: "Receita mensal", value: currency.format(stats.monthly_revenue), icon: BarChart3 },
   ];
+  const statusOrder: DocumentStatus[] = ["entry", "extraction", "classification", "validation", "destination", "action", "done"];
+  const total = documents.length || 1;
+  const stepCounts = PIPELINE_STEPS.map((_, i) => {
+    const stepStatus = statusOrder[i];
+    return documents.filter(d => statusOrder.indexOf(d.status) >= i).length;
+  });
   return (
     <div className="grid gap-5">
       <div className="grid grid-cols-4 gap-4 max-xl:grid-cols-2 max-sm:grid-cols-1">
@@ -462,7 +469,7 @@ function Dashboard({ stats, documents, sales, transactions }: { stats: Stats; do
                 <span className="text-xs font-bold text-sage">0{index + 1}</span>
                 <p className="mt-2 break-words text-sm font-bold">{step.label}</p>
                 <div className="mt-4 h-1.5 rounded-full bg-white/10">
-                  <div className="h-full rounded-full bg-[var(--brand-accent)]" style={{ width: `${Math.min(100, 30 + index * 11)}%` }} />
+                  <div className="h-full rounded-full bg-[var(--brand-accent)]" style={{ width: `${Math.round((stepCounts[index] / total) * 100)}%` }} />
                 </div>
               </div>
             ))}
@@ -616,7 +623,7 @@ function Documents({ documents, filter, setFilter, onDelete }: { documents: Docu
             <span className="rounded-full bg-sage/15 px-3 py-1 text-center text-sm font-bold text-sage">{docLabels[doc.classification]}</span>
             <span className="text-sm text-ivory/60">{statusLabels[doc.status] ?? doc.status}</span>
             <button onClick={() => onDelete(doc.id)} className="grid h-11 w-11 place-items-center rounded-lg border border-white/10 text-red-200 transition hover:border-red-400/40 hover:bg-red-400/10" aria-label="Excluir documento">
-              <Trash2 size={18} />
+              <Trash2 size={18} aria-hidden="true" />
             </button>
           </article>
         ))}
@@ -631,13 +638,14 @@ function Sales({ sales, onCreate }: { sales: Sale[]; onCreate: (event: React.For
       <Panel title="Nova venda" eyebrow="Cadastro">
         <form onSubmit={onCreate} className="grid grid-cols-4 gap-3 max-xl:grid-cols-2 max-md:grid-cols-1">
           {["passenger", "locator", "ticket", "airline", "route", "dates", "total", "du", "rav"].map((field) => (
-            <input
-              key={field}
-              required={["passenger", "locator", "total"].includes(field)}
-              name={field}
-              placeholder={saleFieldLabels[field] ?? field}
-              className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none transition focus:border-[var(--brand-accent)]"
-            />
+            <label key={field} className="grid gap-1 text-xs font-semibold uppercase text-sage">
+              {saleFieldLabels[field] ?? field}
+              <input
+                required={["passenger", "locator", "total"].includes(field)}
+                name={field}
+                className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none transition focus:border-[var(--brand-accent)] text-sm font-normal normal-case"
+              />
+            </label>
           ))}
           <select name="status" className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none">
             <option value="active">Ativa</option>
@@ -689,13 +697,14 @@ function Clients({ clients, onCreate }: { clients: Client[]; onCreate: (event: R
       <Panel title="Novo cliente" eyebrow="Cadastro">
         <form onSubmit={onCreate} className="grid grid-cols-5 gap-3 max-xl:grid-cols-2 max-md:grid-cols-1">
           {["name", "email", "phone", "document"].map((field) => (
-            <input
-              key={field}
-              name={field}
-              required={field === "name"}
-              placeholder={clientFieldLabels[field] ?? field}
-              className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none transition focus:border-[var(--brand-accent)]"
-            />
+            <label key={field} className="grid gap-1 text-xs font-semibold uppercase text-sage">
+              {clientFieldLabels[field] ?? field}
+              <input
+                name={field}
+                required={field === "name"}
+                className="min-h-11 rounded-lg border border-white/10 bg-night px-3 text-ivory outline-none transition focus:border-[var(--brand-accent)] text-sm font-normal normal-case"
+              />
+            </label>
           ))}
           <button className="min-h-11 rounded-lg bg-[var(--brand-accent)] px-4 font-bold text-night transition hover:opacity-90">Salvar cliente</button>
         </form>
