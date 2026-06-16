@@ -79,7 +79,11 @@ const api = {
       const detail = await response.text();
       throw new Error(detail || "Falha na requisição");
     }
-    return response.json() as Promise<T>;
+    try {
+      return await response.json() as T;
+    } catch {
+      throw new Error("Resposta inválida do servidor");
+    }
   },
   login(email: string, password: string) {
     return this.request<{ access_token: string }>("/auth/login", {
@@ -236,7 +240,7 @@ function App() {
       });
       setToast({ message: "Cliente cadastrado com sucesso", type: "success" });
       event.currentTarget.reset();
-      refresh();
+      await refresh();
     } catch {
       setToast({ message: "Erro ao cadastrar cliente", type: "error" });
     }
@@ -259,7 +263,7 @@ function App() {
       });
       setToast({ message: "Venda registrada com sucesso", type: "success" });
       event.currentTarget.reset();
-      refresh();
+      await refresh();
     } catch {
       setToast({ message: "Erro ao registrar venda", type: "error" });
     }
@@ -319,8 +323,9 @@ function App() {
             </div>
             <div className="flex items-center gap-3 max-md:flex-col">
               <label className="flex min-h-11 w-96 max-w-full items-center gap-2 rounded-lg border border-white/10 bg-white/7 px-3 text-ivory/80 max-md:w-full">
-                <Search size={18} />
-                <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent outline-none" placeholder="Buscar documentos, passageiros, localizadores" />
+                <Search size={18} aria-hidden="true" />
+                <span className="sr-only">Buscar</span>
+                <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent outline-none" placeholder="Buscar documentos, passageiros, localizadores" aria-label="Buscar documentos, passageiros, localizadores" />
               </label>
               <button
                 onClick={() => {
@@ -558,12 +563,27 @@ function UploadCenter({ busy, onUpload }: { busy: boolean; onUpload: (payload: F
 }
 
 function SampleButton({ path, label, setText }: { path: string; label: string; setText: (value: string) => void }) {
+  const [loading, setLoading] = useState(false);
+
+  async function handleClick() {
+    setLoading(true);
+    try {
+      const text = await fetch(path).then((r) => r.text());
+      setText(text);
+    } catch {
+      // sample file not available in this environment
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <button
-      onClick={async () => setText(await fetch(path).then((response) => response.text()))}
-      className="rounded-lg border border-white/10 bg-white/7 p-4 text-left font-semibold text-ivory transition hover:bg-white/12"
+      onClick={handleClick}
+      disabled={loading}
+      className="rounded-lg border border-white/10 bg-white/7 p-4 text-left font-semibold text-ivory transition hover:bg-white/12 disabled:opacity-50"
     >
-      {label}
+      {loading ? "Carregando..." : label}
     </button>
   );
 }
